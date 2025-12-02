@@ -3,3 +3,15 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# thumbnai caches
+._*
+
+# macOS folder metadata
+Icon?
