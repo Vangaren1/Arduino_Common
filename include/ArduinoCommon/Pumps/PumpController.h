@@ -1,42 +1,49 @@
-#ifndef PUMPCONTROLLER_H
-#define PUMPCONTROLLER_H
+#ifndef ARDUINOCOMMON_PUMPS_PUMPCONTROLLER_H
+#define ARDUINOCOMMON_PUMPS_PUMPCONTROLLER_H
 
 #include <Arduino.h>
-#include "PinManager.h"
 
-class PumpController
+namespace ArduinoCommon
 {
-private:
-    uint8_t outputPin1;
-    uint8_t outputPin2;
+    namespace Pumps
+    {
 
-    uint32_t maxRunTime;
+        class PumpController
+        {
+        private:
+            uint8_t outputPin1;
+            uint8_t outputPin2;
 
-    bool active;
-    bool validConfig;
-    bool calibrated;
+            uint32_t maxRunTime;
 
-    float mlPerMs;
+            bool active;
+            bool validConfig;
+            bool calibrated;
 
-public:
-    PumpController(uint8_t outPin1, uint8_t outPin2);
-    bool begin();
+            float mlPerMs;
 
-    bool turnOn();
-    bool turnOff();
+        public:
+            PumpController(uint8_t outPin1, uint8_t outPin2);
+            bool begin();
 
-    bool dispenseFor(uint32_t durationMs);
-    bool dispenseML(uint32_t volumeMl);
+            bool turnOn();
+            bool turnOff();
 
-    bool isActive() const;
-    bool isValid() const;
-    bool isCalibrated() const;
+            bool dispenseFor(uint32_t durationMs);
+            bool dispenseML(uint32_t volumeMl);
 
-    bool recordCalibrationResult(uint32_t volumeMl, uint32_t durationMs);
-    bool setMaxRunTime(uint32_t durationMs);
+            bool isActive() const;
+            bool isValid() const;
+            bool isCalibrated() const;
 
-    bool startDispenseFor(uint32_t durationMs);
-    void update();
-};
+            bool recordCalibrationResult(uint32_t volumeMl, uint32_t durationMs);
+            bool setMaxRunTime(uint32_t durationMs);
+
+            bool startDispenseFor(uint32_t durationMs);
+            void update();
+        };
+
+    }
+}
 
 #endif

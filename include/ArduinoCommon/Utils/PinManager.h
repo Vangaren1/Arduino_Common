@@ -1,37 +1,55 @@
-#ifndef PINMANAGER_H
-#define PINMANAGER_H
+#ifndef ARDUINOCOMMON_UTILS_PINMANAGER_H
+#define ARDUINOCOMMON_UTILS_PINMANAGER_H
 
 #include <Arduino.h>
-#include <map>
 
-class PinManager
-{
-private:
-    static std::map<int, bool> pinUsage;
+namespace ArduinoCommon {
+namespace Utils {
 
-public:
-    static bool reservePin(int pin)
-    {
-        if (pinUsage[pin])
-        {
-            Serial.print("Error: pin ");
-            Serial.print(pin);
-            Serial.println(" is already in use");
-            return false; // already in use
-        }
-        pinUsage[pin] = true;
-        return true;
-    }
+#if defined(NUM_DIGITAL_PINS)
+static constexpr uint8_t MaxPins = NUM_DIGITAL_PINS;
+#else
+static constexpr uint8_t MaxPins = 64;
+#endif
 
-    static void releasePin(int pin)
-    {
-        pinUsage[pin] = false;
-    }
+static_assert(MaxPins <= 64,
+              "PinManager: MaxPins exceeds 64, adjust bitmask type if needed.");
 
-    static bool isPinUsed(int pin)
-    {
-        return pinUsage[pin];
-    }
+enum class PinModeType : uint8_t {
+  Free = 0,
+  Input,
+  InputPullup,
+  Output,
+// only for ESP32
+#ifdef INPUT_PULLDOWN
+  InputPulldown,
+#endif
+#ifdef OUTPUT_OPENDRAIN
+  OutputOpenDrain
+#endif
+
 };
+
+class PinManager {
+ private:
+  static uint64_t pinMask;
+  static PinModeType pinModes[MaxPins];
+
+ public:
+  static bool reservePin(uint8_t pin);
+  static void releasePin(uint8_t pin);
+  static bool isPinUsed(uint8_t pin);
+
+  static bool configureOutput(uint8_t pin, bool openDrain = false);
+  static bool configureInput(uint8_t pin, bool pullup = false,
+                             bool pulldown = false);
+
+  static PinModeType getPinMode(uint8_t pin);
+
+  static void debugDump(Stream& out = Serial);
+};
+
+}  // namespace Utils
+}  // namespace ArduinoCommon
 
 #endif

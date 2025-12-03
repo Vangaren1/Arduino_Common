@@ -1,26 +1,31 @@
-#ifndef SoilSensor_H
-#define SoilSensor_H
+#ifndef ARDUINO_SENSORS_SOILSENSOR_H
+#define ARDUINO_SENSORS_SOILSENSOR_H
 
 #include <Arduino.h>
-#include "PinManager.h"
+#include <ArduinoCommon/Utils/PinManager.h>
 
-class SoilSensor
-{
-private:
-    int inputPin;
-    bool validConfig;
+namespace ArduinoCommon {
+namespace Sensors {
 
-    int dryVal;
-    int wetVal;
+class SoilSensor {
+ private:
+  uint8_t inputPin;
+  bool validConfig;
 
-public:
-    SoilSensor(int pin);
-    bool begin(int dryCalibration = -1, int wetCalibration = -1);
-    void setCalibration(int dryCalibration, int wetCalibration);
-    bool validConfiguration() const;
-    int readRaw() const;
-    int readPercent() const;
-    int readAveragedRaw(uint8_t samples = 10) const;
+  int dryVal;
+  int wetVal;
+
+ public:
+  SoilSensor(uint8_t pin);
+  bool begin(int dryCalibration = -1, int wetCalibration = -1);
+  void setCalibration(int dryCalibration, int wetCalibration);
+  bool validConfiguration() const;
+  int readRaw() const;
+  int readPercent() const;
+  int readAveragedRaw(uint8_t samples = 10) const;
 };
+
+}  // namespace Sensors
+}  // namespace ArduinoCommon
 
 #endif
