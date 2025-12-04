@@ -3,47 +3,44 @@
 
 #include <Arduino.h>
 
-namespace ArduinoCommon
-{
-    namespace Pumps
-    {
+namespace ArduinoCommon {
+namespace Pumps {
 
-        class PumpController
-        {
-        private:
-            uint8_t outputPin1;
-            uint8_t outputPin2;
+class PumpController {
+ private:
+  uint8_t outputPin1;
+  uint8_t outputPin2;
 
-            uint32_t maxRunTime;
+  uint32_t maxRunTime;
 
-            bool active;
-            bool validConfig;
-            bool calibrated;
+  bool active;
+  bool validConfig;
+  bool calibrated;
 
-            float mlPerMs;
+  float mlPerMs;
 
-        public:
-            PumpController(uint8_t outPin1, uint8_t outPin2);
-            bool begin();
+ public:
+  PumpController(uint8_t outPin1, uint8_t outPin2);
+  bool begin();
 
-            bool turnOn();
-            bool turnOff();
+  bool turnOn();
+  bool turnOff();
 
-            bool dispenseFor(uint32_t durationMs);
-            bool dispenseML(uint32_t volumeMl);
+  bool dispenseFor(uint32_t durationMs);
+  bool dispenseML(uint32_t volumeMl);
 
-            bool isActive() const;
-            bool isValid() const;
-            bool isCalibrated() const;
+  bool isActive() const;
+  bool isValid() const;
+  bool isCalibrated() const;
 
-            bool recordCalibrationResult(uint32_t volumeMl, uint32_t durationMs);
-            bool setMaxRunTime(uint32_t durationMs);
+  bool recordCalibrationResult(uint32_t volumeMl, uint32_t durationMs);
+  bool setMaxRunTime(uint32_t durationMs);
 
-            bool startDispenseFor(uint32_t durationMs);
-            void update();
-        };
+  bool startDispenseFor(uint32_t durationMs);
+  void update();
+};
 
-    }
-}
+}  // namespace Pumps
+}  // namespace ArduinoCommon
 
 #endif

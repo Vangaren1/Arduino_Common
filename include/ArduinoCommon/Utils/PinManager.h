@@ -38,13 +38,17 @@ class PinManager {
  public:
   static bool reservePin(uint8_t pin);
   static void releasePin(uint8_t pin);
-  static bool isPinUsed(uint8_t pin);
 
   static bool configureOutput(uint8_t pin, bool openDrain = false);
   static bool configureInput(uint8_t pin, bool pullup = false,
                              bool pulldown = false);
 
   static PinModeType getPinMode(uint8_t pin);
+
+  static bool isPinUsed(uint8_t pin);
+  static bool isAnalogPin(uint8_t pin);
+  static bool isDigitalPin(uint8_t pin);
+  static bool isPWMPin(uint8_t pin);
 
   static void debugDump(Stream& out = Serial);
 };
