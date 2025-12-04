@@ -6,105 +6,142 @@ namespace Sensors {
 using ArduinoCommon::Utils::PinManager;
 
 SoilSensor::SoilSensor(uint8_t pin)
-    : inputPin(pin), validConfig(false), dryVal(-1), wetVal(-1) {
-  bool pinCheck = PinManager::reservePin(pin);
+    : _inputPin(pin),
+      _validConfig(false),
+      _calibration(),
+      _storage(nullptr),
+      _storageKey(0) {}
 
-  if (!pinCheck) {
-    validConfig = false;
-    return;
-  }
-
-  inputPin = pin;
-  validConfig = true;
-
-  // default values for wet and dry
-
-  dryVal = -1;
-  wetVal = -1;
+void SoilSensor::attachStorage(Config::IConfigStorage* storage, uint16_t key) {
+  _storage = storage;
+  _storageKey = key;
 }
 
-bool SoilSensor::validConfiguration() const { return validConfig; }
-
-bool SoilSensor::begin(int dry, int wet) {
-  if (!validConfig) return false;
-
-  // For most boards analog pins don’t strictly require pinMode,
-  // but it's harmless and can be helpful on some MCUs.
-  pinMode(inputPin, INPUT);
+bool SoilSensor::begin(int16_t dryCalibration, int16_t wetCalibration) {
+  if (!PinManager::reservePin(_inputPin)) {
+    _validConfig = false;
+    return false;
+  }
+  pinMode(_inputPin, INPUT);
+  _validConfig = true;
 
   // If the user provides calibration values, use them.
-  if (dry >= 0 && wet >= 0 && wet != dry) {
-    dryVal = dry;
-    wetVal = wet;
-  } else {
-    // Provide generic defaults:
-    // On Uno: 0–1023, on many others: 0–4095. Using wide defaults
-    // and encouraging the user to call setCalibration() is safest.
-#if defined(ESP32)
-    dryVal = 3000;  // likely “pretty dry”
-    wetVal = 1200;  // likely “quite wet”
-#else
-    dryVal = 800;  // mostly dry on 10-bit
-    wetVal = 400;  // fairly wet on 10-bit
-#endif
+  if (dryCalibration >= 0 && wetCalibration >= 0 &&
+      wetCalibration != dryCalibration) {
+    _calibration.dryRaw = dryCalibration;
+    _calibration.wetRaw = wetCalibration;
+    _calibration.version = 1;
+
+    saveCalibrationToStorage();
+    return true;
   }
 
+  if (loadCalibrationFromStorage()) {
+    return true;
+  }
+
+  _calibration = SoilCalibration{};
   return true;
 }
 
-void SoilSensor::setCalibration(int dry, int wet) {
-  if (!validConfig) return;
+bool SoilSensor::hasCalibration() const { return _calibration.isValid(); }
 
-  if (wet == dry) return;  // avoid divide-by-zero later
-
-  dryVal = dry;
-  wetVal = wet;
+void SoilSensor::clearCalibration() {
+  _calibration = SoilCalibration{};
+  if (_storage) {
+    _storage->clear(_storageKey, sizeof(SoilCalibration));
+  }
 }
+
+void SoilSensor::setCalibration(int16_t dryRaw, int16_t wetRaw, bool persist) {
+  _calibration.dryRaw = dryRaw;
+  _calibration.wetRaw = wetRaw;
+  _calibration.version = 1;
+
+  if (persist) {
+    saveCalibrationToStorage();
+  }
+}
+
+SoilCalibration SoilSensor::getCalibration() const { return _calibration; }
 
 int SoilSensor::readRaw() const {
-  if (!validConfig) return -1;
+  if (!_validConfig) return -1;
 
-  return analogRead(inputPin);
+  return analogRead(_inputPin);
 }
 
+/*
+ * Returns a percentage where 0% is completely dry and 100% is saturated
+ */
 int SoilSensor::readPercent() const {
-  if (!validConfig) return -1;
-
-  int raw = readRaw();
-  if (raw < 0) return -1;
-
-  // If calibration is not set properly, avoid bad math.
-  if (dryVal < 0 || wetVal < 0 || dryVal == wetVal) return -1;
-
-  // Many sensors are "low value = wet, high value = dry"
-  // so map raw between dryValue→0% and wetValue→100%.
-  // We handle either direction (wetValue may be < or > dryValue).
-
-  float percent;
-
-  if (wetVal < dryVal) {
-    // Example: dry=800, wet=400 on a 10-bit ADC
-    percent = (float)(dryVal - raw) / (float)(dryVal - wetVal) * 100.0f;
-  } else {
-    // Example: dry=1200, wet=3000 on a 12-bit ADC (uncommon, but we support it)
-    percent = (float)(raw - dryVal) / (float)(wetVal - dryVal) * 100.0f;
+  int16_t raw = readRaw();
+  if (raw < 0) {
+    return 0;
   }
 
-  if (percent < 0.0f) percent = 0.0f;
-  if (percent > 100.0f) percent = 100.0f;
+  if (!_calibration.isValid()) {
+    return map(raw, 0, 1023, 0, 100);
+  }
 
-  return static_cast<int>(percent + 0.5f);  // round to nearest int
+  int16_t minVal = _calibration.wetRaw;
+  int16_t maxVal = _calibration.dryRaw;
+
+  if (minVal > maxVal) {
+    int16_t tmp = minVal;
+    minVal = maxVal;
+    maxVal = tmp;
+  }
+
+  int16_t clamped = raw;
+  if (clamped < minVal) clamped = minVal;
+  if (clamped > maxVal) clamped = maxVal;
+
+  int percent = map(clamped, minVal, maxVal, 100, 0);
+
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+  return percent;
 }
 
 int SoilSensor::readAveragedRaw(uint8_t samples) const {
-  if (!validConfig || samples == 0) return -1;
+  if (!_validConfig || samples == 0) return -1;
 
   long total = 0;
   for (uint8_t i = 0; i < samples; i++) {
-    total += analogRead(inputPin);
-    delay(5);  // small delay between samples to reduce noise
+    total += static_cast<int16_t>(analogRead(_inputPin));
+    delay(10);  // small delay between samples to reduce noise
   }
   return static_cast<int>(total / samples);
+}
+
+bool SoilSensor::loadCalibrationFromStorage() {
+  if (!_storage) {
+    return false;
+  }
+
+  if (!_storage->isUsed(_storageKey, sizeof(SoilCalibration))) {
+    return false;
+  }
+
+  SoilCalibration tmp;
+  if (!_storage->read(_storageKey, &tmp, sizeof(SoilCalibration))) {
+    return false;
+  }
+
+  if (!tmp.isValid()) {
+    return false;
+  }
+
+  _calibration = tmp;
+  return true;
+}
+
+bool SoilSensor::saveCalibrationToStorage() const {
+  if (!_storage || !_calibration.isValid()) {
+    return false;
+  }
+  return _storage->write(_storageKey, &_calibration, sizeof(SoilCalibration));
 }
 
 }  // namespace Sensors

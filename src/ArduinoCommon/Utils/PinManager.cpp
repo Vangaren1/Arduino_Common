@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <ArduinoCommon/Utils/PinManager.h>
 
 namespace ArduinoCommon {
@@ -177,6 +178,68 @@ void PinManager::debugDump(Stream& out) {
   if (!any) {
     out.println(F("  (none)"));
   }
+}
+
+bool PinManager::isAnalogPin(uint8_t pin) {
+#if defined(ARDUINO_UNOR4_WIFI) || defined(ARDUINO_UNOR4_MINIMA)
+  // Uno R4 family: 6 analog pins, A0..A5
+  return pin >= A0 && pin <= A5;
+
+#elif defined(ESP32)
+#if defined(digitalPinToAnalogChannel)
+  int ch = digitalPinToAnalogChannel(pin);
+  return ch != -1;
+#else
+  return false;
+#endif
+
+#elif defined(analogInputToDigitalPin)
+  for (int ch = 0;; ++ch) {
+    int dp = analogInputToDigitalPin(ch);
+    if (dp == -1) break;
+    if ((uint8_t)dp == pin) return true;
+  }
+  return false;
+
+#elif defined(A0) && defined(NUM_ANALOG_INPUTS)
+  return pin >= A0 && pin < A0 + NUM_ANALOG_INPUTS;
+
+#else
+  return false;
+#endif
+}
+
+bool PinManager::isDigitalPin(uint8_t pin) { return pin < MaxPins; }
+
+bool PinManager::isPWMPin(uint8_t pin) {
+  //
+  // --- Uno R4 family: 6 PWM pins exposed via analogWrite ---
+  //
+#if defined(ARDUINO_UNOR4_WIFI) || defined(ARDUINO_UNOR4_MINIMA)
+  switch (pin) {
+    case 3:
+    case 5:
+    case 6:
+    case 9:
+    case 10:
+    case 11:
+      return true;
+    default:
+      return false;
+  }
+
+    //
+    // --- Cores that provide digitalPinHasPWM(pin) (AVR, many others) ---
+    //
+#elif defined(digitalPinHasPWM)
+  return digitalPinHasPWM(pin);
+
+  //
+  // --- Fallback: don't claim PWM capability if we don't know ---
+  //
+#else
+  return false;
+#endif
 }
 
 }  // namespace Utils
