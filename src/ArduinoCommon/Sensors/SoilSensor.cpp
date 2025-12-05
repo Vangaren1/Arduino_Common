@@ -44,6 +44,8 @@ bool SoilSensor::begin(int16_t dryCalibration, int16_t wetCalibration) {
   return true;
 }
 
+bool SoilSensor::validConfiguration() const { return _validConfig; }
+
 bool SoilSensor::hasCalibration() const { return _calibration.isValid(); }
 
 void SoilSensor::clearCalibration() {
