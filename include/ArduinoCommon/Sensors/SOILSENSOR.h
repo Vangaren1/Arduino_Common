@@ -44,16 +44,19 @@ class SoilSensor : public IAnalogSensor {
   - optionally uses provided calibration
   - if no calibration values passed, tries to load from storage
   */
-  bool begin(int16_t dryCalibration, int16_t wetCalibration);
+  bool begin(int16_t dryCalibration = -1, int16_t wetCalibration = -1);
 
   // sets the calibration
-  void setCalibration(int16_t dryRaw, int16_t wetRaw, bool persist);
+  void setCalibration(int16_t dryRaw, int16_t wetRaw, bool persist = true);
 
   // checks to see if calibration is already set
   bool hasCalibration() const;
 
   // removes existing calibration
   void clearCalibration();
+
+  // confirms valid configuration
+  bool validConfiguration() const override;
 
   // gets existing calibration
   SoilCalibration getCalibration() const;
