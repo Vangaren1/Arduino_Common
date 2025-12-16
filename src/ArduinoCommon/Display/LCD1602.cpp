@@ -1,56 +1,106 @@
 #include <ArduinoCommon/Display/LCD1602.h>
 #include <ArduinoCommon/Utils/PinManager.h>
-#include <LiquidCrystal_I2C.h>
+
 #include <Wire.h>
 
-using ArduinoCommon::Utils::PinManager;
-
-// Use the scanned I2C address:
-static LiquidCrystal_I2C lcd(0x27, 16, 2);
+#ifdef ARDUINOCOMMON_TESTING
+#include "FakeLiquidCrystal_I2C.h"
+#else
+#include <LiquidCrystal_I2C.h>
+#endif
 
 namespace ArduinoCommon {
 namespace Display {
 
-LCD1602::LCD1602(uint8_t sdaP, uint8_t sclP)
-    : sdaPin(sdaP), sclPin(sclP), validConfig(false) {
-  // Reserve the *pins passed in*
-  bool SDACheck = PinManager::reservePin(sdaPin);
-  bool SCLCheck = PinManager::reservePin(sclPin);
+LCD1602::LCD1602(uint8_t sdaP, uint8_t sclP, uint8_t address) noexcept
+    : lcd(nullptr),
+      sdaPin(sdaP),
+      sclPin(sclP),
+      i2cAddress(address),
+      validConfig(false) {
+  bool sdaOk = Utils::PinManager::reservePin(sdaPin);
+  bool sclOk = Utils::PinManager::reservePin(sclPin);
 
-  if (!SDACheck || !SCLCheck) {
-    validConfig = false;
+  if (!sdaOk || !sclOk) {
+    if (sdaOk) Utils::PinManager::releasePin(sdaPin);
+    if (sclOk) Utils::PinManager::releasePin(sclPin);
     return;
   }
 
-  // We just track pin usage here.
+  lcd = new LiquidCrystal_I2C(i2cAddress, 16, 2);
   validConfig = true;
 }
 
-bool LCD1602::begin() {
-  if (!validConfig) return false;
-
-  Wire.begin();
-
-  lcd.init();  // or lcd.begin(16, 2) for some libs
-  lcd.clear();
-  lcd.backlight();
-  return true;
+LCD1602::~LCD1602() {
+  if (lcd) {
+    delete lcd;
+    lcd = nullptr;
+  }
+  if (validConfig) {
+    Utils::PinManager::releasePin(sdaPin);
+    Utils::PinManager::releasePin(sclPin);
+  }
 }
 
-bool LCD1602::validConfiguration() { return validConfig; }
+bool LCD1602::begin() {
+  if (!validConfig || lcd == nullptr) return false;
+
+#ifdef ARDUINOCOMMON_TESTING
+  // Test build: do not touch real I2C hardware
+  lcd->init();
+  lcd->clear();
+  lcd->backlight();
+  return true;
+#else
+
+#if defined(ESP32)
+  Wire.begin(sdaPin, sclPin);
+#else
+  Wire.begin();
+#endif
+
+  if (!probeI2C_()) return false;
+
+  lcd->init();
+  lcd->clear();
+  lcd->backlight();
+  return true;
+#endif
+}
+
+bool LCD1602::validConfiguration() const noexcept { return validConfig; }
 
 void LCD1602::clear() {
-  if (!validConfig) return;
-  lcd.clear();
+  if (!validConfig || lcd == nullptr) return;
+
+  lcd->clear();
 }
 
-void LCD1602::printLine(int row, const String& text) {
-  if (!validConfig) return;
+bool LCD1602::probeI2C_() const {
+#ifdef ARDUINOCOMMON_TESTING
+  return true;  // Test build: assume device present
+#else
+  Wire.beginTransmission(i2cAddress);
+  return (Wire.endTransmission() == 0);
+#endif
+}
 
-  lcd.setCursor(0, row);
-  lcd.print("                ");  // clear 16 chars on this row
-  lcd.setCursor(0, row);
-  lcd.print(text);
+void LCD1602::printLine(uint8_t row, const char* text) {
+  if (!validConfig || lcd == nullptr || row > 1) return;
+
+  lcd->setCursor(0, row);
+  lcd->print(F("                "));
+  lcd->setCursor(0, row);
+  lcd->print(text ? text : "");
+}
+
+void LCD1602::printLine(uint8_t row, const __FlashStringHelper* text) {
+  if (!validConfig || lcd == nullptr || row > 1) return;
+
+  lcd->setCursor(0, row);
+  lcd->print(F("                "));
+  lcd->setCursor(0, row);
+  lcd->print(text);
 }
 
 }  // namespace Display

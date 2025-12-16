@@ -96,6 +96,12 @@ bool PinManager::configureInput(uint8_t pin, bool pullup, bool pulldown) {
 
 #ifdef INPUT_PULLDOWN
   if (pulldown) desired = PinModeType::InputPulldown;
+#else
+  if (pulldown) {
+    Serial.println(F("Error, Pulldown pin not defined on this board."));
+    Serial.print(pin);
+    Serial.println(F(" pin cannot be assigned as PullDown type."));
+  }
 #endif
 
   if (pullup) desired = PinModeType::InputPullup;
