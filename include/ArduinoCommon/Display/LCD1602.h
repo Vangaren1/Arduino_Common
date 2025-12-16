@@ -48,6 +48,9 @@ class LCD1602 {
    */
   bool probeI2C_() const;
 
+  using ProbeFn = bool (*)(uint8_t addr);
+  ProbeFn probeFn;
+
  public:
   /**
    * @brief Construct a new LCD1602 object.
@@ -118,6 +121,14 @@ class LCD1602 {
    * @param text Flash-resident string
    */
   void printLine(uint8_t row, const __FlashStringHelper* text);
+
+#ifdef ARDUINOCOMMON_TESTING
+  /**
+   * @brief Test-only access to the underlying LCD driver pointer.
+   * @warning Only available when ARDUINOCOMMON_TESTING is defined.
+   */
+  LiquidCrystal_I2C* _getLcdForTests() const noexcept { return lcd; }
+#endif
 };
 
 }  // namespace Display

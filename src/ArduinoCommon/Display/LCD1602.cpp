@@ -1,7 +1,13 @@
 #include <ArduinoCommon/Display/LCD1602.h>
 #include <ArduinoCommon/Utils/PinManager.h>
-#include <LiquidCrystal_I2C.h>
+
 #include <Wire.h>
+
+#ifdef ARDUINOCOMMON_TESTING
+#include "FakeLiquidCrystal_I2C.h"
+#else
+#include <LiquidCrystal_I2C.h>
+#endif
 
 namespace ArduinoCommon {
 namespace Display {
@@ -39,20 +45,27 @@ LCD1602::~LCD1602() {
 bool LCD1602::begin() {
   if (!validConfig || lcd == nullptr) return false;
 
+#ifdef ARDUINOCOMMON_TESTING
+  // Test build: do not touch real I2C hardware
+  lcd->init();
+  lcd->clear();
+  lcd->backlight();
+  return true;
+#else
+
 #if defined(ESP32)
   Wire.begin(sdaPin, sclPin);
 #else
   Wire.begin();
 #endif
 
-  if (!probeI2C_()) {
-    return false;
-  }
+  if (!probeI2C_()) return false;
 
   lcd->init();
   lcd->clear();
   lcd->backlight();
   return true;
+#endif
 }
 
 bool LCD1602::validConfiguration() const noexcept { return validConfig; }
@@ -64,8 +77,12 @@ void LCD1602::clear() {
 }
 
 bool LCD1602::probeI2C_() const {
+#ifdef ARDUINOCOMMON_TESTING
+  return true;  // Test build: assume device present
+#else
   Wire.beginTransmission(i2cAddress);
   return (Wire.endTransmission() == 0);
+#endif
 }
 
 void LCD1602::printLine(uint8_t row, const char* text) {
